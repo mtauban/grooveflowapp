@@ -37,7 +37,7 @@
 <body>
   <div class="container">
     <h1 class="text-center mb-4">GrooveFlow</h1>
-    <p class="text-center">Export your playlist from Rekordbox as a TXT (tab‑separated) file with the columns "Track Title", "Key", and "BPM" visible. Open the TXT file in a text editor, copy its content, and paste it below.</p>
+    <p class="text-center">Export your playlist from Rekordbox as a TXT (tab‑separated) file with the columns <strong>"Track Title"</strong>, <strong>"Key"</strong> and <strong>"BPM"</strong> visible. Open the TXT file in a text editor, copy its content, and paste it below.</p>
     <div class="mb-3">
       <textarea id="playlistInput" rows="8" placeholder="Paste your playlist text here..."></textarea>
     </div>
@@ -143,49 +143,50 @@
     <section id="how-it-works" class="mt-5 pt-3 border-top">
       <h2>How It Works</h2>
       <p>
-        <strong>GrooveFlow</strong> is designed to help you create a DJ set that flows naturally. It optimizes your playlist by considering both the harmonic compatibility (using the Camelot Wheel) and the tempo consistency (BPM). Here's a breakdown of the process:
+        <strong>GrooveFlow</strong> is a playlist optimizer designed to help you create DJ sets that flow naturally. It does so by harmonizing two critical factors: the musical key (using the Camelot Wheel) and the tempo (BPM). The app leverages principles inspired by natural cooling processes and physics to minimize abrupt changes between tracks.
       </p>
       <h3>The Camelot Wheel and Energy Changes</h3>
       <p>
-        The Camelot Wheel assigns each musical key a number (1–12) and a letter (<em>A</em> for minor, <em>B</em> for major). This system helps DJs choose tracks that mix well. In GrooveFlow:
+        The Camelot Wheel assigns each key a number (1–12) and a letter (<em>A</em> for minor, <em>B</em> for major). This system allows DJs to identify harmonically compatible tracks. For instance:
       </p>
       <ul>
-        <li><strong>Perfect Match:</strong> Tracks with the same key (e.g. 4A &rarr; 4A) mix seamlessly. Also, due to the Camelot system, 4A is equivalent to 3B and 4B to 5A.</li>
-        <li><strong>Boosts and Drops:</strong> Shifting the key (for example, 4A &rarr; 5A) results in a boost (energy increase), while the reverse (5A &rarr; 4A) is a drop (energy decrease).</li>
-        <li><strong>Mood Change:</strong> A dramatic shift—such as from 4A to 7B (a +3 shift for an A key) or from 8B to 5A (a –3 shift for a B key, equivalent to a mod difference of 9)—is labeled as a mood change.</li>
+        <li><strong>Perfect Match:</strong> A track in 4A mixes seamlessly with another in 4A. Additionally, the system treats 4A as equivalent to 3B and 4B to 5A.</li>
+        <li><strong>Boosts and Drops:</strong> Moving from 4A to 5A provides a normal energy boost, while the reverse is a drop. Larger shifts (e.g. 4A to 6A) result in a bigger boost.</li>
+        <li><strong>Mood Change:</strong> A dramatic shift, like 4A to 7B or 8B to 5A, is labeled as a mood change—this represents a significant emotional or harmonic jump.</li>
       </ul>
-      <h3>The Cost Function: Balancing Harmony and Tempo</h3>
+      <h3>The Cost Function: Physics, Harmony, and Tempo</h3>
       <p>
-        GrooveFlow uses a <strong>combined cost function</strong> to measure how smooth your playlist is. This function has two parts:
+        At its core, GrooveFlow minimizes a <strong>combined cost function</strong> that reflects both key mismatches and BPM differences:
       </p>
       <ol>
         <li>
-          <strong>Key Penalty:</strong> Each track transition is analyzed using the energy change rules. In normal mode, various energy changes (boosts, drops, mood changes) incur different costs. In <strong>Strict Mode</strong>, only perfect matches are accepted—any transition that is not a perfect match is treated as “undefined” and penalized.
+          <strong>Tolerance (k):</strong> This parameter sets the buffer for undefined transitions. If an undefined transition is flanked by at least <em>k</em> well-defined transitions, no penalty is added. Physically, you can think of this as allowing occasional turbulence in an otherwise smooth flow.
         </li>
         <li>
-          <strong>BPM Gap Cost:</strong> The relative BPM difference between tracks is calculated as a percentage. A change up to 6% is acceptable and incurs a low cost; beyond 6%, an extra penalty is applied to discourage large tempo jumps.
+          <strong>Weight BPM:</strong> This factor determines how heavily tempo differences count in the overall cost. BPM differences up to 6% are considered acceptable, but beyond that, the cost increases sharply—akin to a phase transition in physics.
+        </li>
+        <li>
+          <strong>Weight Key:</strong> This sets the penalty for non-harmonic (undefined) key transitions. In normal mode, different energy changes (boosts, drops, mood changes) have their own costs; in <strong>Strict Mode</strong>, only perfect matches are accepted.
+        </li>
+        <li>
+          <strong>Penalty Multiplier:</strong> For BPM shifts greater than 6%, this multiplier imposes an extra penalty. It mimics the concept of critical thresholds in natural processes—small deviations are fine, but beyond a limit, the system becomes unstable.
+        </li>
+        <li>
+          <strong>Strict Mode:</strong> When enabled, the optimizer treats any transition that isn’t a perfect match as undefined, forcing the system to seek only flawless harmonic transitions. This is ideal for those who want a rigorously smooth set.
         </li>
       </ol>
-      <h3>Simulated Annealing Optimization</h3>
       <p>
-        Inspired by the cooling process of molten metal, simulated annealing explores different track orders by randomly swapping tracks and accepting changes based on whether they lower the overall cost. Over thousands of iterations, the algorithm “cools” and settles on an ordering that minimizes abrupt energy and BPM shifts.
+        The optimizer uses <strong>simulated annealing</strong>—a method inspired by the gradual cooling of molten metal—to explore different track orders. Just as in nature where a system finds a low-energy configuration by cooling slowly, GrooveFlow iteratively rearranges your playlist to minimize the total cost.
+      </p>
+      <h3>About the Creator</h3>
+      <p>
+        GrooveFlow was created by a <em>MūTN</em> who holds a PhD in Physics and is also a material enginee by training in addition to being a techno enthousiast. This unique blend of scientific and musical passion informs every aspect of the app.
       </p>
       <p>
-        The tables above show both the original and optimized transition details. The energy change cells use a color code:
-        <span class="energy-green px-2">Green</span> (perfect match),
-        <span class="energy-red px-2">Red</span> (boost),
-        <span class="energy-blue px-2">Blue</span> (drop),
-        <span class="energy-orange px-2">Orange</span> (mood change), and
-        <span class="energy-dark px-2">Dark Gray</span> (undefined).
+        Check out my mixes on <a href="https://soundcloud.com/mutn" target="_blank" style="color: #fd7e14; text-decoration: underline;">SoundCloud</a>.
       </p>
       <p>
-        The BPM change cells are colored using a gradient from dark (0% change) to red (20% change or more), providing a quick visual cue for tempo differences.
-      </p>
-      <p>
-        Note: Because the optimizer uses a stochastic algorithm, running the tool multiple times may produce a better optimization result. Try tweaking the parameters and re-running to see different outcomes.
-      </p>
-      <p>
-        Enjoy creating a smooth, energetic, and perfectly flowing DJ set with GrooveFlow!
+        Note: Because simulated annealing is a stochastic (random) process, running the tool multiple times might produce even better optimizations. Experiment with the parameters and re-run the optimizer to see how the cost can be further reduced.
       </p>
     </section>
   </div>
