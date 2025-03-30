@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GrooveFlow - Playlist Optimizer</title>
+  <!-- Using Bootswatch Darkly theme from CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.2.3/dist/darkly/bootstrap.min.css">
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      padding: 20px;
+    }
+    textarea {
+      width: 100%;
+      font-family: monospace;
+      margin-bottom: 20px;
+    }
+    .param {
+      margin-bottom: 15px;
+    }
+    .slider-label {
+      margin-bottom: 5px;
+    }
+    .table-energy th, .table-energy td {
+      text-align: center;
+      vertical-align: middle;
+    }
+    /* Energy change color coding */
+    .energy-green { background-color: #28a745 !important; color: #fff !important; }   /* perfect match */
+    .energy-red   { background-color: #dc3545 !important; color: #fff !important; }   /* boost/increase */
+    .energy-blue  { background-color: #007bff !important; color: #fff !important; }   /* drop/decrease */
+    .energy-orange{ background-color: #fd7e14 !important; color: #fff !important; }   /* mood change */
+    .energy-dark  { background-color: #343a40 !important; color: #fff !important; }   /* undefined */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center mb-4">GrooveFlow</h1>
+    <p class="text-center">Export your playlist from Rekordbox as a TXT (tab‑separated) file with the columns "Track Title", "Key", and "BPM" visible. Open the TXT file in a text editor, copy its content, and paste it below.</p>
+    <div class="mb-3">
+      <textarea id="playlistInput" rows="8" placeholder="Paste your playlist text here..."></textarea>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-md-3 param">
+        <label for="kSlider" class="slider-label">Tolerance (k): <span id="kValue">6</span></label>
+        <input type="range" id="kSlider" min="0" max="15" value="6" class="form-range">
+      </div>
+      <div class="col-md-3 param">
+        <label for="weightBpmSlider" class="slider-label">Weight BPM: <span id="weightBpmValue">0.1</span></label>
+        <input type="range" id="weightBpmSlider" min="0" max="1" step="0.01" value="0.1" class="form-range">
+      </div>
+      <div class="col-md-3 param">
+        <label for="weightKeySlider" class="slider-label">Weight Key: <span id="weightKeyValue">1</span></label>
+        <input type="range" id="weightKeySlider" min="0" max="5" step="0.1" value="1" class="form-range">
+      </div>
+      <div class="col-md-3 param">
+        <label for="penaltyMultiplierSlider" class="slider-label">Penalty Multiplier: <span id="penaltyMultiplierValue">10</span></label>
+        <input type="range" id="penaltyMultiplierSlider" min="1" max="20" step="1" value="10" class="form-range">
+      </div>
+    </div>
+
+    <!-- New Strict Mode Checkbox -->
+    <div class="row mb-4">
+      <div class="col-md-3 param">
+        <div class="form-check">
+          <input type="checkbox" id="strictModeCheckbox" class="form-check-input">
+          <label for="strictModeCheckbox" class="form-check-label">Strict Mode</label>
+          <small class="form-text text-muted">Force perfect match only</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mb-4">
+      <button id="optimizeButton" class="btn btn-primary btn-lg">Optimize Playlist</button>
+    </div>
+
+    <!-- Display cost information -->
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <h4>Initial Total Cost:</h4>
+        <p id="initialCost" class="fs-5"></p>
+      </div>
+      <div class="col-md-6">
+        <h4>Optimized Total Cost:</h4>
+        <p id="optimizedCost" class="fs-5"></p>
+      </div>
+    </div>
+
+    <h2 class="mt-4">Original Transition Analysis</h2>
+    <div class="table-responsive">
+      <table class="table table-dark table-bordered table-energy" id="analysisInputTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>From Track</th>
+            <th>To Track</th>
+            <th>BPM Change</th>
+            <th>Energy Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Analysis rows for input ordering will appear here -->
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="mt-4">Optimized Playlist Order &amp; Analysis</h2>
+    <div class="table-responsive mb-3">
+      <table class="table table-dark table-bordered" id="playlistOutputTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Track Title</th>
+            <th>Key</th>
+            <th>BPM</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Optimized playlist order will appear here -->
+        </tbody>
+      </table>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-dark table-bordered table-energy" id="analysisOptimizedTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>From Track</th>
+            <th>To Track</th>
+            <th>BPM Change</th>
+            <th>Energy Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Analysis rows for optimized ordering will appear here -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="mt-5 pt-3 border-top">
+      <h2>How It Works</h2>
+      <p>
+        <strong>GrooveFlow</strong> is designed to help you create a DJ set that flows naturally. It optimizes your playlist by considering both the harmonic compatibility (using the Camelot Wheel) and the tempo consistency (BPM). Here's a breakdown of the process:
+      </p>
+      <h3>The Camelot Wheel and Energy Changes</h3>
+      <p>
+        The Camelot Wheel assigns each musical key a number (1–12) and a letter (<em>A</em> for minor, <em>B</em> for major). This system helps DJs choose tracks that mix well. In GrooveFlow:
+      </p>
+      <ul>
+        <li><strong>Perfect Match:</strong> Tracks with the same key (e.g. 4A &rarr; 4A) mix seamlessly. Also, due to the Camelot system, 4A is equivalent to 3B and 4B to 5A.</li>
+        <li><strong>Boosts and Drops:</strong> Shifting the key (for example, 4A &rarr; 5A) results in a boost (energy increase), while the reverse (5A &rarr; 4A) is a drop (energy decrease).</li>
+        <li><strong>Mood Change:</strong> A dramatic shift—such as from 4A to 7B (a +3 shift for an A key) or from 8B to 5A (a –3 shift for a B key, equivalent to a mod difference of 9)—is labeled as a mood change.</li>
+      </ul>
+      <h3>The Cost Function: Balancing Harmony and Tempo</h3>
+      <p>
+        GrooveFlow uses a <strong>combined cost function</strong> to measure how smooth your playlist is. This function has two parts:
+      </p>
+      <ol>
+        <li>
+          <strong>Key Penalty:</strong> Each track transition is analyzed using the energy change rules. In normal mode, various energy changes (boosts, drops, mood changes) incur different costs. In <strong>Strict Mode</strong>, only perfect matches are accepted—any transition that is not a perfect match is treated as “undefined” and penalized.
+        </li>
+        <li>
+          <strong>BPM Gap Cost:</strong> The relative BPM difference between tracks is calculated as a percentage. A change up to 6% is acceptable and incurs a low cost; beyond 6%, an extra penalty is applied to discourage large tempo jumps.
+        </li>
+      </ol>
+      <h3>Simulated Annealing Optimization</h3>
+      <p>
+        Inspired by the cooling process of molten metal, simulated annealing explores different track orders by randomly swapping tracks and accepting changes based on whether they lower the overall cost. Over thousands of iterations, the algorithm “cools” and settles on an ordering that minimizes abrupt energy and BPM shifts.
+      </p>
+      <p>
+        The tables above show both the original and optimized transition details. The energy change cells use a color code:
+        <span class="energy-green px-2">Green</span> (perfect match),
+        <span class="energy-red px-2">Red</span> (boost),
+        <span class="energy-blue px-2">Blue</span> (drop),
+        <span class="energy-orange px-2">Orange</span> (mood change), and
+        <span class="energy-dark px-2">Dark Gray</span> (undefined).
+      </p>
+      <p>
+        The BPM change cells are colored using a gradient from dark (0% change) to red (20% change or more), providing a quick visual cue for tempo differences.
+      </p>
+      <p>
+        Note: Because the optimizer uses a stochastic algorithm, running the tool multiple times may produce a better optimization result. Try tweaking the parameters and re-running to see different outcomes.
+      </p>
+      <p>
+        Enjoy creating a smooth, energetic, and perfectly flowing DJ set with GrooveFlow!
+      </p>
+    </section>
+  </div>
+
+  <script>
+    // --- Helper functions ---
+    function parsePlaylist(text) {
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) {
+        alert("Playlist text must contain a header and at least one track.");
+        return [];
+      }
+      const header = lines[0].split('\t').map(h => h.trim().replace(/^"+|"+$/g, ""));
+      const titleIndex = header.indexOf("Track Title");
+      const keyIndex = header.indexOf("Key");
+      const bpmIndex = header.indexOf("BPM");
+      if (titleIndex === -1 || keyIndex === -1 || bpmIndex === -1) {
+        alert("Header must contain 'Track Title', 'Key', and 'BPM' columns.");
+        return [];
+      }
+      const tracks = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split('\t');
+        if (cols.length < header.length) continue;
+        tracks.push({
+          title: cols[titleIndex].trim(),
+          key: cols[keyIndex].trim(),
+          bpm: cols[bpmIndex].trim()
+        });
+      }
+      return tracks;
+    }
+
+    // Energy change function (includes mood change)
+    function energyChange(source, destination) {
+      function parseKey(key) {
+        key = key.trim();
+        const num = parseInt(key.slice(0, -1));
+        const letter = key.slice(-1).toUpperCase();
+        if (isNaN(num) || num < 1 || num > 12 || (letter !== 'A' && letter !== 'B')) {
+          throw "Invalid key format: " + key;
+        }
+        return { num: num, letter: letter };
+      }
+      function modDiff(a, b) {
+        return ((b - a) % 12 + 12) % 12;
+      }
+      const s = parseKey(source);
+      const d = parseKey(destination);
+
+      // Perfect match mixing
+      if (s.num === d.num && s.letter === d.letter) {
+        return "perfect match (no energy change)";
+      }
+      if (s.letter === 'A' && d.letter === 'B') {
+        let expected = s.num > 1 ? s.num - 1 : 12;
+        if (d.num === expected) return "perfect match (no energy change)";
+      }
+      if (s.letter === 'B' && d.letter === 'A') {
+        let expected = s.num < 12 ? s.num + 1 : 1;
+        if (d.num === expected) return "perfect match (no energy change)";
+      }
+
+      // Mood change transitions:
+      if (s.letter === 'A' && d.letter === 'B') {
+        if (modDiff(s.num, d.num) === 3) return "mood change";
+      }
+      if (s.letter === 'B' && d.letter === 'A') {
+        if (modDiff(s.num, d.num) === 9) return "mood change";
+      }
+
+      // Other transitions for A keys:
+      if (s.letter === 'A') {
+        if (d.letter === 'B' && d.num === s.num) return "light boost";
+        if (d.letter === 'A') {
+          const diff = modDiff(s.num, d.num);
+          if (diff === 1) return "normal boost";
+          else if (diff === 2) return "big boost";
+          else if (diff === 7) return "normal boost";
+          else if (diff === 11) return "normal drop";
+          else if (diff === 10) return "big drop";
+          else if (diff === 5) return "normal drop";
+        }
+      }
+      // Transitions for B keys:
+      if (s.letter === 'B') {
+        if (d.letter === 'A' && d.num === s.num) return "light drop";
+        if (d.letter === 'B') {
+          const diff = modDiff(s.num, d.num);
+          if (diff === 1) return "normal boost";
+          else if (diff === 2) return "big boost";
+          else if (diff === 7) return "normal boost";
+          else if (diff === 11) return "normal drop";
+          else if (diff === 10) return "big drop";
+          else if (diff === 5) return "normal drop";
+        }
+      }
+      return "undefined transition";
+    }
+
+    // Compute BPM cell color: gradient from dark (#343a40) at 0% to red (#dc3545) at 20% or above.
+    function getBpmColor(relDiff) {
+      const clamped = Math.min(relDiff, 20);
+      const r = Math.round(52 + (220 - 52) * (clamped / 20));
+      const g = Math.round(58 + (52 - 58) * (clamped / 20));
+      const b = Math.round(64 + (69 - 64) * (clamped / 20));
+      return "rgb(" + r + "," + g + "," + b + ")";
+    }
+
+    // Combined cost function: key penalty + BPM gap cost with 6% threshold.
+    // In strict mode, any transition that is not a perfect match is treated as undefined.
+    function combinedOrderingCost(ordering, k, weightBpm, weightKey, penaltyMultiplier, strictMode) {
+      let totalCost = 0;
+      for (let i = 0; i < ordering.length - 1; i++) {
+        let candidate = energyChange(ordering[i].key, ordering[i+1].key);
+        let energy = candidate;
+        if (strictMode && candidate !== "perfect match (no energy change)") {
+          energy = "undefined transition";
+        }
+        let keyPenalty = 0;
+        if (energy === "undefined transition") {
+          if (i < k || i > (ordering.length - 2 - k)) {
+            keyPenalty = weightKey;
+          } else {
+            let acceptable = true;
+            for (let j = i - k; j < i; j++) {
+              let cand = energyChange(ordering[j].key, ordering[j+1].key);
+              if (strictMode && cand !== "perfect match (no energy change)") {
+                cand = "undefined transition";
+              }
+              if (cand === "undefined transition") {
+                acceptable = false;
+                break;
+              }
+            }
+            for (let j = i+1; j < i+1+k; j++) {
+              let cand = energyChange(ordering[j].key, ordering[j+1].key);
+              if (strictMode && cand !== "perfect match (no energy change)") {
+                cand = "undefined transition";
+              }
+              if (cand === "undefined transition") {
+                acceptable = false;
+                break;
+              }
+            }
+            if (!acceptable) keyPenalty = weightKey;
+          }
+        }
+        let bpmCost = 0;
+        const bpm1 = parseFloat(ordering[i].bpm);
+        const bpm2 = parseFloat(ordering[i+1].bpm);
+        if (!isNaN(bpm1) && !isNaN(bpm2) && bpm1 !== 0) {
+          const relDiff = Math.abs(bpm2 - bpm1) / bpm1;
+          if (relDiff <= 0.06) {
+            bpmCost = weightBpm * relDiff;
+          } else {
+            bpmCost = weightBpm * (0.06 + penaltyMultiplier * (relDiff - 0.06));
+          }
+        }
+        totalCost += keyPenalty + bpmCost;
+      }
+      return totalCost;
+    }
+
+    // Simulated annealing optimizer for ordering.
+    function findOrderingWithTolerance(tracks, k, iterations, weightBpm, weightKey, penaltyMultiplier, strictMode) {
+      if (tracks.length <= 2) return tracks;
+      let currentOrder = tracks.slice();
+      let intermediates = currentOrder.slice(1, currentOrder.length - 1);
+      let bestOrder = currentOrder.slice();
+      let bestCost = combinedOrderingCost(currentOrder, k, weightBpm, weightKey, penaltyMultiplier, strictMode);
+      let T = 1.0, T_min = 0.0001, alpha = 0.995;
+      for (let it = 0; it < iterations; it++) {
+        let newIntermediates = intermediates.slice();
+        let idx1 = Math.floor(Math.random() * newIntermediates.length);
+        let idx2 = Math.floor(Math.random() * newIntermediates.length);
+        if (idx1 !== idx2) {
+          [newIntermediates[idx1], newIntermediates[idx2]] = [newIntermediates[idx2], newIntermediates[idx1]];
+        }
+        let candidateOrder = [tracks[0]].concat(newIntermediates).concat([tracks[tracks.length - 1]]);
+        let candidateCost = combinedOrderingCost(candidateOrder, k, weightBpm, weightKey, penaltyMultiplier, strictMode);
+        let currentCost = combinedOrderingCost([tracks[0]].concat(intermediates).concat([tracks[tracks.length - 1]]), k, weightBpm, weightKey, penaltyMultiplier, strictMode);
+        let delta = candidateCost - currentCost;
+        if (delta < 0 || Math.random() < Math.exp(-delta / T)) {
+          intermediates = newIntermediates;
+          currentOrder = candidateOrder;
+          if (candidateCost < bestCost) {
+            bestCost = candidateCost;
+            bestOrder = candidateOrder.slice();
+          }
+        }
+        T = Math.max(T * alpha, T_min);
+      }
+      return bestOrder;
+    }
+
+    // Returns a color class for a given energy change.
+    function getEnergyColorClass(energy) {
+      if (energy === "perfect match (no energy change)") return "energy-green";
+      if (energy.indexOf("boost") !== -1) return "energy-red";
+      if (energy.indexOf("drop") !== -1) return "energy-blue";
+      if (energy === "mood change") return "energy-orange";
+      return "energy-dark";
+    }
+
+    // Build analysis table rows.
+    function buildAnalysisTable(ordering, strictMode) {
+      let html = "";
+      for (let i = 0; i < ordering.length - 1; i++) {
+        const track1 = ordering[i];
+        const track2 = ordering[i+1];
+        let candidateEnergy = energyChange(track1.key, track2.key);
+        let energy = candidateEnergy;
+        if (strictMode && candidateEnergy !== "perfect match (no energy change)") {
+          energy = "undefined transition";
+        }
+        let bpm1 = parseFloat(track1.bpm);
+        let bpm2 = parseFloat(track2.bpm);
+        let relDiff = 0;
+        if (!isNaN(bpm1) && !isNaN(bpm2) && bpm1 !== 0) {
+          relDiff = Math.abs(bpm2 - bpm1) / bpm1 * 100;
+        }
+        let bpmColor = getBpmColor(relDiff);
+        html += "<tr>";
+        html += "<td>" + (i+1) + "</td>";
+        html += "<td>" + track1.title + " (" + track1.key + ", " + track1.bpm + " BPM)" + "</td>";
+        html += "<td>" + track2.title + " (" + track2.key + ", " + track2.bpm + " BPM)" + "</td>";
+        html += "<td style='background-color:" + bpmColor + ";'>" + relDiff.toFixed(1) + "%</td>";
+        html += "<td class='" + getEnergyColorClass(energy) + "'>" + energy + "</td>";
+        html += "</tr>";
+      }
+      return html;
+    }
+
+    // Build playlist order table rows.
+    function buildPlaylistTable(ordering) {
+      let html = "";
+      for (let i = 0; i < ordering.length; i++) {
+        html += "<tr>";
+        html += "<td>" + (i+1) + "</td>";
+        html += "<td>" + ordering[i].title + "</td>";
+        html += "<td>" + ordering[i].key + "</td>";
+        html += "<td>" + ordering[i].bpm + "</td>";
+        html += "</tr>";
+      }
+      return html;
+    }
+
+    // UI interactions.
+    document.getElementById("kSlider").addEventListener("input", function() {
+      document.getElementById("kValue").textContent = this.value;
+    });
+    document.getElementById("weightBpmSlider").addEventListener("input", function() {
+      document.getElementById("weightBpmValue").textContent = this.value;
+    });
+    document.getElementById("weightKeySlider").addEventListener("input", function() {
+      document.getElementById("weightKeyValue").textContent = this.value;
+    });
+    document.getElementById("penaltyMultiplierSlider").addEventListener("input", function() {
+      document.getElementById("penaltyMultiplierValue").textContent = this.value;
+    });
+
+    document.getElementById("optimizeButton").addEventListener("click", function() {
+      const playlistText = document.getElementById("playlistInput").value;
+      if (!playlistText.trim()) {
+        alert("Please paste your playlist text.");
+        return;
+      }
+      const tracks = parsePlaylist(playlistText);
+      if (tracks.length === 0) return;
+
+      const strictMode = document.getElementById("strictModeCheckbox").checked;
+
+      // Build analysis for original ordering.
+      document.querySelector("#analysisInputTable tbody").innerHTML = buildAnalysisTable(tracks, strictMode);
+
+      // Calculate and display the initial total cost.
+      const initialCost = combinedOrderingCost(tracks, parseInt(document.getElementById("kSlider").value),
+                              parseFloat(document.getElementById("weightBpmSlider").value),
+                              parseFloat(document.getElementById("weightKeySlider").value),
+                              parseFloat(document.getElementById("penaltyMultiplierSlider").value),
+                              strictMode);
+      document.getElementById("initialCost").textContent = initialCost.toFixed(3);
+
+      // Get parameters.
+      const k = parseInt(document.getElementById("kSlider").value);
+      const weightBpm = parseFloat(document.getElementById("weightBpmSlider").value);
+      const weightKey = parseFloat(document.getElementById("weightKeySlider").value);
+      const penaltyMultiplier = parseFloat(document.getElementById("penaltyMultiplierSlider").value);
+      const iterations = 5000;
+
+      const optimizedOrder = findOrderingWithTolerance(tracks, k, iterations, weightBpm, weightKey, penaltyMultiplier, strictMode);
+
+      // Build optimized playlist order table.
+      document.querySelector("#playlistOutputTable tbody").innerHTML = buildPlaylistTable(optimizedOrder);
+      // Build analysis for optimized ordering.
+      document.querySelector("#analysisOptimizedTable tbody").innerHTML = buildAnalysisTable(optimizedOrder, strictMode);
+
+      // Calculate and display the optimized total cost.
+      const optimizedCost = combinedOrderingCost(optimizedOrder, k, weightBpm, weightKey, penaltyMultiplier, strictMode);
+      document.getElementById("optimizedCost").textContent = optimizedCost.toFixed(3);
+    });
+  </script>
+</body>
+</html>
